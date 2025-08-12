@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A Birthday Surprise!</title>
+    <style>
+        :root {
+            --light-bg: #fce4ec;
+            --button-color: #ff80ab;
+            --button-shadow: #ff4081;
+            --title-color: #d500f9;
+            --text-color: #ad1457;
+        }
+
+        body {
+            background-color: var(--light-bg);
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            position: relative;
+            z-index: 101;
+        }
+
+        #dark-overlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: #000;
+            z-index: 100;
+            transition: opacity 1s ease-in-out;
+            pointer-events: none;
+        }
+
+        #dark-overlay.hidden { opacity: 0; }
+
+        #decoration {
+            position: absolute;
+            bottom: -30vh;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            max-width: 500px;
+            z-index: 1;
+            opacity: 0;
+            transition: opacity 1s, bottom 4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        #decoration.visible { opacity: 1; bottom: 70vh; }
+
+        #balloon-container {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 2;
+        }
+
+        .balloon {
+            position: absolute;
+            bottom: -200px;
+            width: 60px; height: 75px;
+            border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+            opacity: 0;
+        }
+
+        .balloon::after {
+            content: "";
+            position: absolute;
+            bottom: -10px; left: 50%;
+            transform: translateX(-50%);
+            width: 1px; height: 20px;
+            background: rgba(0,0,0,0.4);
+        }
+
+        #cake-area { display: none; text-align: center; }
+        #cake-image { width: 200px; height: auto; margin-bottom: 20px; }
+
+        #control-button {
+            background-color: var(--button-color);
+            color: white; border: none;
+            padding: 15px 32px;
+            font-size: 16px; font-family: inherit;
+            cursor: pointer; border-radius: 12px;
+            box-shadow: 0 9px var(--button-shadow);
+            /* This is the key for the smooth slide animation */
+            transition: all 0.6s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+        }
+
+        #control-button.chasing {
+            position: fixed; /* Allows positioning relative to the screen corners */
+            z-index: 200;
+        }
+        
+        #card-modal {
+            display: none;
+            position: fixed;
+            z-index: 300;
+            left: 0; top: 0;
+            width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.6);
+            justify-content: center;
+            align-items: center;
+        }
+
+        #card-content {
+            background-color: #fffaf0;
+            padding: 30px;
+            border: 3px solid var(--button-color);
+            border-radius: 15px;
+            width: 80%;
+            max-width: 500px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            text-align: center;
+            animation: zoomIn 0.5s ease-out;
+        }
+
+        @keyframes zoomIn {
+            from { transform: scale(0.4); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        #card-content h1 { font-size: 2.5em; color: var(--title-color); margin-bottom: 15px; }
+        #card-content p { font-size: 1.1em; color: var(--text-color); line-height: 1.6; }
+        .signature { margin-top: 25px; font-style: italic; font-size: 1.2em; color: #ff69b4; }
+
+    </style>
+</head>
+<body>
+
+    <div id="dark-overlay"></div>
+    <img id="decoration" src='data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 40"><path d="M0 5 C 20 20, 40 0, 50 5 C 60 10, 80 -10, 100 5" stroke="%23d2b48c" fill="none" stroke-width="1"/><polygon points="10,8 20,25 30,8" fill="%23ff69b4"/><polygon points="30,6 40,23 50,6" fill="%231e90ff"/><polygon points="50,8 60,25 70,8" fill="%2332cd32"/><polygon points="70,6 80,23 90,6" fill="%23ffc72c"/></svg>' alt="Decoration Banner">
+    <div id="balloon-container"></div>
+
+    <div class="container">
+        <div id="cake-area">
+            <img id="cake-image" src="" alt="Birthday Cake">
+        </div>
+        <button id="control-button" onclick="runSequence()">Switch on the lights</button>
+    </div>
+
+    <div id="card-modal">
+        <div id="card-content">
+            <h1>HAPPY BIRTHDAY LUUUCHIIII!</h1>
+            <p>Your life is a poem that I get the honor of reading every day, and it's the most beautiful one I've ever known.</p>
+            <p>I know this verse of your professional life is a hard one to write, but you have the most incredible strength and resilience. This is just a stanza, not your whole epic. Your best lines are yet to come, and I can't wait to see them unfold.</p>
+            <p>Wishing you a day filled with love, laughter, and all your favorite things! May the year ahead be as amazing as you are.</p>
+            <div class="signature"><p>I Love youuu! -- Raj</p></div>
+        </div>
+    </div>
+
+    <script>
+        let stage = 0;
+        let chaseStage = 0; // 0=start, 1=top-right, 2=top-left, 3=bottom-right, 4=bottom-left
+        const button = document.getElementById('control-button');
+        const overlay = document.getElementById('dark-overlay');
+        const decoration = document.getElementById('decoration');
+        const cakeArea = document.getElementById('cake-area');
+        const cakeImage = document.getElementById('cake-image');
+        const cardModal = document.getElementById('card-modal');
+
+        const cakeWithCandlesURL = `data:image/svg+xml;charset=UTF-8,<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><path d="M54,34.8v-5.2c0-1.1-0.9-2-2-2H12c-1.1,0-2,0.9-2,2v5.2H54z" fill="%23E69956"/><path d="M52,38.8H12c-1.1,0-2,0.9-2,2v12c0,1.1,0.9,2,2,2h40c1.1,0,2-0.9,2-2v-12C54,39.7,53.1,38.8,52,38.8z" fill="%23D37D39"/><path d="M52,27.5H12c-1.1,0-2,0.9-2,2v2h44v-2C54,28.4,53.1,27.5,52,27.5z" fill="%23F2B376"/><path d="M22.1,16.8h-2.1c-0.6,0-1,0.4-1,1v10h4v-10C23.1,17.2,22.6,16.8,22.1,16.8z" fill="%23B2D7F8"/><path d="M33.1,16.8h-2.1c-0.6,0-1,0.4-1,1v10h4v-10C34.1,17.2,33.6,16.8,33.1,16.8z" fill="%23B2D7F8"/><path d="M44.1,16.8h-2.1c-0.6,0-1,0.4-1,1v10h4v-10C45.1,17.2,44.6,16.8,44.1,16.8z" fill="%23B2D7F8"/><path d="M21,11.8c0-0.7,0.3-1.3,0.8-1.7c0.8-0.7,2.2-0.6,2.8,0.3c0.4,0.5,0.4,1.2,0.1,1.7c-0.5,0.7-1.4,1.2-2.3,1.2 C21.6,13.2,21,12.5,21,11.8z" fill="%23FFC72C"/><path d="M32,11.8c0-0.7,0.3-1.3,0.8-1.7c0.8-0.7,2.2-0.6,2.8,0.3c0.4,0.5,0.4,1.2,0.1,1.7c-0.5,0.7-1.4,1.2-2.3,1.2 C32.6,13.2,32,12.5,32,11.8z" fill="%23FFC72C"/><path d="M43,11.8c0-0.7,0.3-1.3,0.8-1.7c0.8-0.7,2.2-0.6,2.8,0.3c0.4,0.5,0.4,1.2,0.1,1.7c-0.5,0.7-1.4,1.2-2.3,1.2 C43.6,13.2,43,12.5,43,11.8z" fill="%23FFC72C"/></svg>`;
+        const cakeSliceURL = `data:image/svg+xml;charset=UTF-8,<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><path d="M52,43.3v-6.7c0-0.6-0.4-1-1-1H18.5c-0.4,0-0.8,0.3-0.9,0.7L12.9,51H51C51.6,51,52,50.6,52,50V43.3z" fill="%23D37D39"/><path d="M51,21.7h-33c-0.6,0-1,0.4-1,1v13h34V22.7C52,22.1,51.6,21.7,51,21.7z" fill="%23F2B376"/><path d="M52,28.7v-7c0-0.6-0.4-1-1-1H17.6c-0.4,0-0.8,0.3-0.9,0.7l-4.8,14H51C51.6,35.7,52,35.2,52,34.7V28.7z" fill="%23E69956"/></svg>`;
+
+        function runSequence() {
+            stage++;
+            switch (stage) {
+                case 1:
+                    overlay.classList.add('hidden');
+                    button.innerText = 'Decorate the room!';
+                    break;
+                case 2:
+                    decoration.classList.add('visible');
+                    button.innerText = 'Fill the room with balloons!';
+                    break;
+                case 3:
+                    createBalloons(30);
+                    button.innerText = 'Time for cake!';
+                    break;
+                case 4:
+                    cakeArea.style.display = 'block';
+                    cakeImage.src = cakeWithCandlesURL;
+                    button.innerText = 'Make a wish and cut the cake!';
+                    button.onclick = null;
+                    button.onmouseover = handleChase;
+                    break;
+            }
+        }
+
+        // --- Updated 4-Corner Chase Logic ---
+        function handleChase() {
+            switch (chaseStage) {
+                case 0: // Start -> Top-Right
+                    chaseStage = 1;
+                    button.classList.add('chasing');
+                    button.style.top = '30px';
+                    button.style.right = '30px';
+                    button.style.bottom = 'auto';
+                    button.style.left = 'auto';
+                    button.innerText = 'Catch me!';
+                    break;
+                case 1: // Top-Right -> Top-Left
+                    chaseStage = 2;
+                    button.style.top = '30px';
+                    button.style.right = 'auto';
+                    button.style.left = '30px';
+                    break;
+                case 2: // Top-Left -> Bottom-Right
+                    chaseStage = 3;
+                    button.style.top = 'auto';
+                    button.style.bottom = '30px';
+                    button.style.left = 'auto';
+                    button.style.right = '30px';
+                    break;
+                case 3: // Bottom-Right -> Bottom-Left (Final)
+                    chaseStage = 4;
+                    button.style.top = 'auto';
+                    button.style.right = 'auto';
+                    button.style.bottom = '30px';
+                    button.style.left = '30px';
+                    button.innerText = 'Okay, you got me!';
+                    button.onmouseover = null; // Stop the chase
+                    button.onclick = cutTheCake; // Enable next step
+                    break;
+            }
+        }
+
+        function cutTheCake() {
+            cakeImage.src = cakeSliceURL;
+            button.classList.remove('chasing');
+            button.style.top = '';
+            button.style.right = '';
+            button.style.bottom = '';
+            button.style.left = '';
+            button.innerText = 'Click to see your card!';
+            button.onclick = showFinalCard;
+        }
+
+        function showFinalCard() {
+            cakeArea.style.display = 'none';
+            button.style.display = 'none';
+            cardModal.style.display = 'flex';
+        }
+
+        function createBalloons(count) {
+            const balloonContainer = document.getElementById('balloon-container');
+            const colors = ['#ff69b4', '#ff4500', '#1e90ff', '#32cd32', '#ffff00', '#9400d3', '#ff1493'];
+            for (let i = 0; i < count; i++) {
+                const balloon = document.createElement('div');
+                balloon.className = 'balloon';
+                balloon.style.backgroundColor = colors[i % colors.length];
+                balloon.style.left = Math.random() * 95 + 'vw';
+                const duration = (Math.random() * 3 + 4) + 's';
+                const delay = (Math.random() * 1.5) + 's';
+                balloon.style.transition = `bottom ${duration} ease-out, opacity ${duration} ease-in`;
+                balloon.style.transitionDelay = delay;
+                balloonContainer.appendChild(balloon);
+                setTimeout(() => {
+                    balloon.style.opacity = '0.9';
+                    balloon.style.bottom = (Math.random() * 70 + 15) + 'vh';
+                }, 10);
+            }
+        }
+    </script>
+</body>
+</html>
